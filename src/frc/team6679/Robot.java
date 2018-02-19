@@ -23,6 +23,11 @@ public class Robot extends IterativeRobot
     // Initialize the arm motor
     private VictorSP armMotor;
 
+    // Initialize a PIDController object for the drivetrain alongside a double to keep track of the angle to rotate the robot
+    PIDController turnController;
+    // Initialize the arm intake motors
+    private VictorSP leftIntakeMotor;
+
     // Pairs up the drivetrain motors based on their respective side and initializes the drivetrain controlling object
     private SpeedControllerGroup leftSideDriveMotors;
     private SpeedControllerGroup rightSideDriveMotors;
@@ -30,9 +35,7 @@ public class Robot extends IterativeRobot
 
     // Initialize the navX object
     private AHRS navX;
-
-    // Initialize a PIDController object for the drivetrain alongside a double to keep track of the angle to rotate
-    PIDController turnController;
+    private VictorSP rightIntakeMotor;
     double rotateToAngleRate;
 
     // Initialize the PIDController coefficients
@@ -45,7 +48,7 @@ public class Robot extends IterativeRobot
     // Function run once when the robot is turned on
     public void robotInit()
     {
-        // Assigns all the motors and solenoids to their respective objects (the number in brackets is the port # of what is connected where)
+        // Assigns all the motors to their respective objects (the number in brackets is the port # of what is connected where)
         leftDriveMotor1 = new WPI_TalonSRX(0);
         leftDriveMotor2 = new WPI_TalonSRX(1);
         leftDriveMotor3 = new WPI_TalonSRX(2);
@@ -53,14 +56,21 @@ public class Robot extends IterativeRobot
         rightDriveMotor2 = new WPI_TalonSRX(4);
         rightDriveMotor3 = new WPI_TalonSRX(5);
         armMotor = new VictorSP(0);
-        armMotor.setInverted(true);
+        leftIntakeMotor = new VictorSP(1);
+        rightIntakeMotor = new VictorSP(2);
 
         // Assigns the drivetrain motors to their respective motor controller group and then passes them on to the drivetrain controller object
         leftSideDriveMotors = new SpeedControllerGroup(leftDriveMotor1, leftDriveMotor2, leftDriveMotor3);
         rightSideDriveMotors = new SpeedControllerGroup(rightDriveMotor1, rightDriveMotor2, rightDriveMotor3);
         robotDrive = new DifferentialDrive(leftSideDriveMotors, rightSideDriveMotors);
+
+        // Sets the appropriate configuration settings for the motors
+        leftSideDriveMotors.setInverted(true);
+        rightSideDriveMotors.setInverted(true);
+        leftIntakeMotor.setInverted(true);
         robotDrive.setSafetyEnabled(true);
         robotDrive.setExpiration(0.1);
+        robotDrive.setMaxOutput(0.80);
 
         // Attempts to setup the navX object otherwise prints an error
         try
@@ -75,7 +85,7 @@ public class Robot extends IterativeRobot
         // Assigns the PIDController object its relevant values
         turnController = new PIDController(kP, kI, kD, kF, navX, this::pidWrite);
         turnController.setInputRange(-180.0f, 180.0f);
-        turnController.setOutputRange(-1.0, 1.0);
+        turnController.setOutputRange(-0.75, 0.75);
         turnController.setAbsoluteTolerance(kToleranceDegrees);
         turnController.setContinuous(true);
 
@@ -89,33 +99,58 @@ public class Robot extends IterativeRobot
     // Function run in an endless loop during the teleop mode
     public void teleopPeriodic()
     {
-        // Sets the boolean to rotate the robot to false
+        // Sets the boolean that toggles the PIDController to rotate the robot to false
         boolean rotateToAngle = false;
 
-        // A Button (Resets the navX)
-        if (driveController.getAButtonPressed() && !driveController.getAButtonReleased())
+        // Start Button - Moves the intake motors to take in a cube
+        if (driveController.getStartButtonPressed())
+        {
+            leftIntakeMotor.set(1);
+            rightIntakeMotor.set(1);
+        }
+
+        // Back Button - Moves the intake motors to push out a cube
+        else if (driveController.getBackButtonPressed())
+        {
+            leftIntakeMotor.set(-1);
+            rightIntakeMotor.set(-1);
+        }
+
+        // Stops the intake motors from moving if neither the Start Button or the Back Button were pressed
+        else
+        {
+            leftIntakeMotor.set(0);
+            rightIntakeMotor.set(0);
+        }
+
+        // A Button - Resets the navX
+        //        if (driveController.getAButtonPressed() && driveController.getAButtonReleased())
+        if (driveController.getAButton())
         {
             navX.reset();
         }
 
-        // X Button (Rotates the robot by 90 degrees to the left)
-        else if (driveController.getXButtonPressed() && !driveController.getXButtonReleased())
+        // X Button - Rotates the robot by 90 degrees to the left
+        //        else if (driveController.getXButtonPressed() && driveController.getXButtonReleased())
+        else if (driveController.getXButton())
         {
-            turnController.setSetpoint(-90.0f);
+            turnController.setSetpoint(90.0f);
             rotateToAngle = true;
         }
 
-        // Y Button (Rotates the robot by 180 degrees to the right)
-        else if (driveController.getYButtonPressed() && !driveController.getYButtonReleased())
+        // Y Button - Rotates the robot by 180 degrees to the right
+        //        else if (driveController.getYButtonPressed() && driveController.getYButtonReleased())
+        else if (driveController.getYButton())
         {
             turnController.setSetpoint(179.9f);
             rotateToAngle = true;
         }
 
-        // B Button (Rotates the robot by 90 degrees to the right)
-        else if (driveController.getBButtonPressed() && !driveController.getBButtonReleased())
+        // B Button - Rotates the robot by 90 degrees to the right
+        //        else if (driveController.getBButtonPressed() && driveController.getBButtonReleased())
+        else if (driveController.getBButton())
         {
-            turnController.setSetpoint(90.0f);
+            turnController.setSetpoint(-90.0f);
             rotateToAngle = true;
         }
 
@@ -128,26 +163,26 @@ public class Robot extends IterativeRobot
         } else
         {
             turnController.disable();
-            currentRotationRate = driveController.getRawAxis(4);
+            currentRotationRate = -driveController.getRawAxis(0);
         }
-
 
         // Moves the robot with the rotation rate being influenced by the PIDController
         try
         {
-            robotDrive.arcadeDrive(driveController.getRawAxis(1), currentRotationRate);
+            robotDrive.arcadeDrive(driveController.getRawAxis(5), currentRotationRate);
+            System.out.println(leftDriveMotor1.getOutputCurrent() + "\t" + leftDriveMotor2.getOutputCurrent() + "\t" + leftDriveMotor3.getOutputCurrent() + "\t|\t" + rightDriveMotor1.getOutputCurrent() + "\t" + rightDriveMotor2.getOutputCurrent() + "\t" + rightDriveMotor3.getOutputCurrent());
         } catch (RuntimeException ex)
         {
             DriverStation.reportError("Error communicating with drive system:  " + ex.getMessage(), true);
         }
 
         // Passes on the input from the driving controller's left stick's Y axis (acceleration) and right stick's X axis (turning) to move the robot around
-        //        robotDrive.arcadeDrive(driveController.getRawAxis(1), driveController.getRawAxis(4));
+        //        robotDrive.arcadeDrive(driveController.getRawAxis(5), -driveController.getRawAxis(0));
 
-        // Passes on the input from the primary controller's right stick's Y axis to move the arm vertically and scales it to 75% power
-        armMotor.set((driveController.getRawAxis(3) - driveController.getRawAxis(2)) * 0.75);
+        // Passes on the input from the primary controller's left and right triggers to move the arm vertically and scales its power
+        armMotor.set((driveController.getRawAxis(3) - driveController.getRawAxis(2)) * 0.5);
 
-        // Waits for the motors to update
+        // Waits for the motors to update for 5ms
         Timer.delay(0.005);
     }
 
