@@ -4,7 +4,6 @@ import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
 import com.kauailabs.navx.frc.AHRS;
 import edu.wpi.first.wpilibj.*;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
-import edu.wpi.first.wpilibj.livewindow.LiveWindow;
 
 public class Robot extends IterativeRobot
 {
@@ -23,10 +22,10 @@ public class Robot extends IterativeRobot
     // Initialize the arm motor
     private VictorSP armMotor;
 
-    // Initialize a PIDController object for the drivetrain alongside a double to keep track of the angle to rotate the robot
-    PIDController turnController;
     // Initialize the arm intake motors
     private VictorSP leftIntakeMotor;
+    // Initialize the PIDController coefficients
+    static final double kP = 0.05;
 
     // Pairs up the drivetrain motors based on their respective side and initializes the drivetrain controlling object
     private SpeedControllerGroup leftSideDriveMotors;
@@ -35,14 +34,13 @@ public class Robot extends IterativeRobot
 
     // Initialize the navX object
     private AHRS navX;
-    private VictorSP rightIntakeMotor;
+    static final double kF = 0.02;
     double rotateToAngleRate;
-
-    // Initialize the PIDController coefficients
-    static final double kP = 0.03;
+    // Initialize a PIDController object for the drivetrain alongside a double to keep track of the angle to rotate the robot
+    PIDController turnController;
     static final double kI = 0.00;
     static final double kD = 0.00;
-    static final double kF = 0.00;
+    private VictorSP rightIntakeMotor;
     static final double kToleranceDegrees = 2.0f;
 
     // Function run once when the robot is turned on
@@ -88,12 +86,6 @@ public class Robot extends IterativeRobot
         turnController.setOutputRange(-0.75, 0.75);
         turnController.setAbsoluteTolerance(kToleranceDegrees);
         turnController.setContinuous(true);
-
-        // Adds the PIDController to the DriverStation's Test panel
-        Sendable pidSendable = turnController;
-        pidSendable.setName("RotateController");
-        pidSendable.setSubsystem("DriveSystem");
-        LiveWindow.add(pidSendable);
     }
 
     // Function run in an endless loop during the teleop mode
@@ -103,14 +95,14 @@ public class Robot extends IterativeRobot
         boolean rotateToAngle = false;
 
         // Start Button - Moves the intake motors to take in a cube
-        if (driveController.getStartButtonPressed())
+        if (driveController.getStartButton())
         {
             leftIntakeMotor.set(1);
             rightIntakeMotor.set(1);
         }
 
         // Back Button - Moves the intake motors to push out a cube
-        else if (driveController.getBackButtonPressed())
+        else if (driveController.getBackButton())
         {
             leftIntakeMotor.set(-1);
             rightIntakeMotor.set(-1);
@@ -124,14 +116,12 @@ public class Robot extends IterativeRobot
         }
 
         // A Button - Resets the navX
-        //        if (driveController.getAButtonPressed() && driveController.getAButtonReleased())
-        if (driveController.getAButton())
+        if (driveController.getAButtonPressed() && driveController.getAButtonReleased())
         {
             navX.reset();
         }
 
         // X Button - Rotates the robot by 90 degrees to the left
-        //        else if (driveController.getXButtonPressed() && driveController.getXButtonReleased())
         else if (driveController.getXButton())
         {
             turnController.setSetpoint(90.0f);
@@ -139,7 +129,6 @@ public class Robot extends IterativeRobot
         }
 
         // Y Button - Rotates the robot by 180 degrees to the right
-        //        else if (driveController.getYButtonPressed() && driveController.getYButtonReleased())
         else if (driveController.getYButton())
         {
             turnController.setSetpoint(179.9f);
@@ -147,7 +136,6 @@ public class Robot extends IterativeRobot
         }
 
         // B Button - Rotates the robot by 90 degrees to the right
-        //        else if (driveController.getBButtonPressed() && driveController.getBButtonReleased())
         else if (driveController.getBButton())
         {
             turnController.setSetpoint(-90.0f);
@@ -170,7 +158,6 @@ public class Robot extends IterativeRobot
         try
         {
             robotDrive.arcadeDrive(driveController.getRawAxis(5), currentRotationRate);
-            System.out.println(leftDriveMotor1.getOutputCurrent() + "\t" + leftDriveMotor2.getOutputCurrent() + "\t" + leftDriveMotor3.getOutputCurrent() + "\t|\t" + rightDriveMotor1.getOutputCurrent() + "\t" + rightDriveMotor2.getOutputCurrent() + "\t" + rightDriveMotor3.getOutputCurrent());
         } catch (RuntimeException ex)
         {
             DriverStation.reportError("Error communicating with drive system:  " + ex.getMessage(), true);
