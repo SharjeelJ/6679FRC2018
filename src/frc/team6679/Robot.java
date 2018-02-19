@@ -24,8 +24,7 @@ public class Robot extends IterativeRobot
 
     // Initialize the arm intake motors
     private VictorSP leftIntakeMotor;
-    // Initialize the PIDController coefficients
-    static final double kP = 0.05;
+    private VictorSP rightIntakeMotor;
 
     // Pairs up the drivetrain motors based on their respective side and initializes the drivetrain controlling object
     private SpeedControllerGroup leftSideDriveMotors;
@@ -34,14 +33,17 @@ public class Robot extends IterativeRobot
 
     // Initialize the navX object
     private AHRS navX;
-    static final double kF = 0.02;
-    double rotateToAngleRate;
+
     // Initialize a PIDController object for the drivetrain alongside a double to keep track of the angle to rotate the robot
-    PIDController turnController;
-    static final double kI = 0.00;
-    static final double kD = 0.00;
-    private VictorSP rightIntakeMotor;
-    static final double kToleranceDegrees = 2.0f;
+    private PIDController turnController;
+    private double rotateToAngleRate;
+
+    // Initialize the PIDController coefficients
+    private static final double kP = 0.05;
+    private static final double kI = 0.00;
+    private static final double kD = 0.00;
+    private static final double kF = 0.02;
+    private static final double kToleranceDegrees = 2.0f;
 
     // Function run once when the robot is turned on
     public void robotInit()
@@ -175,7 +177,7 @@ public class Robot extends IterativeRobot
 
 
     // Function called by the PIDController based on the navX's yaw angle and PID coefficients
-    public void pidWrite(double output)
+    private void pidWrite(double output)
     {
         rotateToAngleRate = output;
     }
