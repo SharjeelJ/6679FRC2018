@@ -8,8 +8,8 @@ import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 public class Robot extends IterativeRobot
 {
     // Initialize the two Xbox 360 controllers to control the robot
-    private XboxController driveController = new XboxController(0);
-    //    private XboxController functionController = new XboxController(1);
+    private XboxController primaryController = new XboxController(0);
+    private XboxController secondaryController = new XboxController(1);
 
     // Initialize the drivetrain motors
     private WPI_TalonSRX leftDriveMotor1;
@@ -96,21 +96,21 @@ public class Robot extends IterativeRobot
         // Sets the boolean that toggles the PIDController to rotate the robot to false
         boolean rotateToAngle = false;
 
-        // Start Button - Moves the intake motors to take in a cube
-        if (driveController.getStartButton())
+        // Left Bumper - Moves the intake motors to take in a cube
+        if (primaryController.getBumper(GenericHID.Hand.kLeft) || secondaryController.getBumper(GenericHID.Hand.kLeft))
         {
             leftIntakeMotor.set(1);
             rightIntakeMotor.set(1);
         }
 
-        // Back Button - Moves the intake motors to push out a cube
-        else if (driveController.getBackButton())
+        // Right Bumper - Moves the intake motors to push out a cube
+        else if (primaryController.getBumper(GenericHID.Hand.kRight) || secondaryController.getBumper(GenericHID.Hand.kRight))
         {
             leftIntakeMotor.set(-1);
             rightIntakeMotor.set(-1);
         }
 
-        // Stops the intake motors from moving if neither the Start Button or the Back Button were pressed
+        // Stops the intake motors from moving if neither the Left Bumper or the Right Bumper were pressed
         else
         {
             leftIntakeMotor.set(0);
@@ -118,27 +118,27 @@ public class Robot extends IterativeRobot
         }
 
         // A Button - Resets the navX
-        if (driveController.getAButtonPressed() && driveController.getAButtonReleased())
+        if (primaryController.getAButtonPressed() && primaryController.getAButtonReleased())
         {
             navX.reset();
         }
 
         // X Button - Rotates the robot by 90 degrees to the left
-        else if (driveController.getXButton())
+        else if (primaryController.getXButton())
         {
             turnController.setSetpoint(90.0f);
             rotateToAngle = true;
         }
 
         // Y Button - Rotates the robot by 180 degrees to the right
-        else if (driveController.getYButton())
+        else if (primaryController.getYButton())
         {
             turnController.setSetpoint(179.9f);
             rotateToAngle = true;
         }
 
         // B Button - Rotates the robot by 90 degrees to the right
-        else if (driveController.getBButton())
+        else if (primaryController.getBButton())
         {
             turnController.setSetpoint(-90.0f);
             rotateToAngle = true;
@@ -153,23 +153,23 @@ public class Robot extends IterativeRobot
         } else
         {
             turnController.disable();
-            currentRotationRate = -driveController.getRawAxis(0);
+            currentRotationRate = -primaryController.getRawAxis(0);
         }
 
         // Moves the robot with the rotation rate being influenced by the PIDController
         try
         {
-            robotDrive.arcadeDrive(driveController.getRawAxis(5), currentRotationRate);
+            robotDrive.arcadeDrive(primaryController.getRawAxis(5), currentRotationRate);
         } catch (RuntimeException ex)
         {
             DriverStation.reportError("Error communicating with drive system:  " + ex.getMessage(), true);
         }
 
-        // Passes on the input from the driving controller's left stick's Y axis (acceleration) and right stick's X axis (turning) to move the robot around
-        //        robotDrive.arcadeDrive(driveController.getRawAxis(5), -driveController.getRawAxis(0));
-
-        // Passes on the input from the primary controller's left and right triggers to move the arm vertically and scales its power
-        armMotor.set((driveController.getRawAxis(3) - driveController.getRawAxis(2)) * 0.5);
+        // Passes on the input from the controller's left and right triggers to move the arm vertically and scales its power and prioritizes control to the primary controller
+        if ((primaryController.getRawAxis(3) - primaryController.getRawAxis(2)) != 0)
+            armMotor.set((primaryController.getRawAxis(3) - primaryController.getRawAxis(2)) * 0.5);
+        else if ((secondaryController.getRawAxis(3) - secondaryController.getRawAxis(2)) != 0)
+            armMotor.set((secondaryController.getRawAxis(3) - secondaryController.getRawAxis(2)) * 0.5);
 
         // Waits for the motors to update for 5ms
         Timer.delay(0.005);
