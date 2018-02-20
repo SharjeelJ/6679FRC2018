@@ -4,6 +4,7 @@ import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
 import com.kauailabs.navx.frc.AHRS;
 import edu.wpi.first.wpilibj.*;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 public class Robot extends IterativeRobot
 {
@@ -38,12 +39,16 @@ public class Robot extends IterativeRobot
     private PIDController turnController;
     private double rotateToAngleRate;
 
+    // TODO Tune PID coefficients
     // Initialize the PIDController coefficients
     private static final double kP = 0.05;
     private static final double kI = 0.00;
     private static final double kD = 0.00;
     private static final double kF = 0.02;
     private static final double kToleranceDegrees = 2.0f;
+
+    // Initialize a string that will specify which side the alliance elements are on based on the DriverStation
+    String allianceElementsLocation = "";
 
     // Function run once when the robot is turned on
     public void robotInit()
@@ -88,6 +93,65 @@ public class Robot extends IterativeRobot
         turnController.setOutputRange(-0.75, 0.75);
         turnController.setAbsoluteTolerance(kToleranceDegrees);
         turnController.setContinuous(true);
+
+        // Puts 3 buttons onto the LabView Default Dashboard to choose the autonomous routine
+        SmartDashboard.putBoolean("DB/Button 1", false);
+        SmartDashboard.putBoolean("DB/Button 2", false);
+        SmartDashboard.putBoolean("DB/Button 3", false);
+
+        // Puts 3 sliders onto the LabView Default Dashboard to specify the autonomous stage the routine is currently on
+        SmartDashboard.putNumber("DB/Slider 1", 0.0);
+        SmartDashboard.putNumber("DB/Slider 2", 0.0);
+        SmartDashboard.putNumber("DB/Slider 3", 0.0);
+    }
+
+    // Function that is run once each time the robot enters autonomous mode
+    public void autonomousInit()
+    {
+        // Resets the navX
+        navX.reset();
+
+        // Resets the 3 autonomous stage sliders
+        SmartDashboard.putNumber("DB/Slider 1", 0.0);
+        SmartDashboard.putNumber("DB/Slider 2", 0.0);
+        SmartDashboard.putNumber("DB/Slider 3", 0.0);
+
+        // Gets the string from the DriverStation specifying which side the alliance elements are on and stores it
+        allianceElementsLocation = DriverStation.getInstance().getGameSpecificMessage();
+    }
+
+    // Function run in an endless loop during the autonomous mode
+    public void autonomousPeriodic()
+    {
+        // Checks to see which autonomous routine has been requested for and calls it based on the LabView Default Dashboard's buttons
+        // Moves the robot forward then turns to the appropriate side and moves towards it and places the cube
+        if (SmartDashboard.getBoolean("DB/Button 1", false))
+        {
+            // Parses the alliance elements location string to check if the autonomous mode being run is appropriate and uses it to determine which side the autonomous would be focusing on for the switch
+            if (allianceElementsLocation.length() > 0)
+            {
+                // Code run if the switch is on the left side
+                if (allianceElementsLocation.charAt(0) == 'L')
+                {
+                    // TODO Left switch autonomous code
+                }
+
+                // Code run if the switch is on the right side
+                else if (allianceElementsLocation.charAt(0) == 'R')
+                {
+                    // TODO Right switch autonomous code
+                }
+            }
+        }
+
+        // Moves the robot forward across the line
+        else if (SmartDashboard.getBoolean("DB/Button 2", false))
+        {
+            // TODO Move across line autonomous code
+        }
+
+        // Does nothing
+        else robotDrive.stopMotor();
     }
 
     // Function run in an endless loop during the teleop mode
@@ -123,21 +187,21 @@ public class Robot extends IterativeRobot
             navX.reset();
         }
 
-        // X Button - Rotates the robot by 90 degrees to the left
+        // X Button - Rotates the robot by 90 degrees to the left of the origin position
         else if (primaryController.getXButton())
         {
             turnController.setSetpoint(90.0f);
             rotateToAngle = true;
         }
 
-        // Y Button - Rotates the robot by 180 degrees to the right
+        // Y Button - Rotates the robot to the 180 (origin) position
         else if (primaryController.getYButton())
         {
             turnController.setSetpoint(179.9f);
             rotateToAngle = true;
         }
 
-        // B Button - Rotates the robot by 90 degrees to the right
+        // B Button - Rotates the robot by 90 degrees to the right of the origin position
         else if (primaryController.getBButton())
         {
             turnController.setSetpoint(-90.0f);
