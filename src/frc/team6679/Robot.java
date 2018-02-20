@@ -50,8 +50,8 @@ public class Robot extends IterativeRobot
     private static double kF = 0.02;
     private static double kToleranceDegrees = 2.0f;
 
-    // Initialize a string that will specify which side the alliance elements are on based on the DriverStation
-    String allianceElementsLocation = "";
+    // Initialize a string that will specify which side each of the alliance elements are on based on the DriverStation
+    private String allianceElementsLocation = "";
 
     // Function run once when the robot is turned on
     public void robotInit()
@@ -108,7 +108,7 @@ public class Robot extends IterativeRobot
         SmartDashboard.putBoolean("DB/Button 2", false);
         SmartDashboard.putBoolean("DB/Button 3", false);
 
-        // Puts 3 sliders onto the LabView Default Dashboard to specify the autonomous stage the routine is currently on
+        // Puts 3 sliders onto the LabView Default Dashboard to indicate the autonomous stage the routine is currently on
         SmartDashboard.putNumber("DB/Slider 1", 0.0);
         SmartDashboard.putNumber("DB/Slider 2", 0.0);
         SmartDashboard.putNumber("DB/Slider 3", 0.0);
@@ -121,6 +121,15 @@ public class Robot extends IterativeRobot
         SmartDashboard.putString("DB/String 4", String.valueOf(kToleranceDegrees));
     }
 
+    // Function run in an endless loop throughout all modes
+    public void robotPeriodic()
+    {
+        // Updates the values on the LabView Default Dashboard
+        SmartDashboard.putString("DB/String 5", String.valueOf(ultrasonicSensor.getRangeInches()));
+        SmartDashboard.putString("DB/String 6", String.valueOf(navX.getAngle()));
+        SmartDashboard.putString("DB/String 7", String.valueOf(turnController.getSetpoint()));
+    }
+
     // Function run in an endless loop during the disabled mode
     public void disabledPeriodic()
     {
@@ -130,11 +139,8 @@ public class Robot extends IterativeRobot
         kD = Double.valueOf(SmartDashboard.getString("DB/String 2", String.valueOf(kD)));
         kF = Double.valueOf(SmartDashboard.getString("DB/String 3", String.valueOf(kF)));
         kToleranceDegrees = Double.valueOf(SmartDashboard.getString("DB/String 4", String.valueOf(kToleranceDegrees)));
-
-        // Updates the values on the LabView Default Dashboard
-        SmartDashboard.putString("DB/String 5", String.valueOf(ultrasonicSensor.getRangeInches()));
-        SmartDashboard.putString("DB/String 6", String.valueOf(navX.getAngle()));
-        SmartDashboard.putString("DB/String 7", String.valueOf(turnController.getSetpoint()));
+        turnController.setPID(kP, kI, kD, kF);
+        turnController.setAbsoluteTolerance(kToleranceDegrees);
     }
 
 
@@ -149,7 +155,7 @@ public class Robot extends IterativeRobot
         SmartDashboard.putNumber("DB/Slider 2", 0.0);
         SmartDashboard.putNumber("DB/Slider 3", 0.0);
 
-        // Gets the string from the DriverStation specifying which side the alliance elements are on and stores it
+        // Gets the string from the DriverStation specifying which side each of the alliance elements are on and stores it
         allianceElementsLocation = DriverStation.getInstance().getGameSpecificMessage();
     }
 
@@ -196,11 +202,6 @@ public class Robot extends IterativeRobot
 
         // Does nothing
         else robotDrive.stopMotor();
-
-        // Updates the values on the LabView Default Dashboard
-        SmartDashboard.putString("DB/String 5", String.valueOf(ultrasonicSensor.getRangeInches()));
-        SmartDashboard.putString("DB/String 6", String.valueOf(navX.getAngle()));
-        SmartDashboard.putString("DB/String 7", String.valueOf(turnController.getSetpoint()));
     }
 
     // Function run in an endless loop during the teleop mode
@@ -278,16 +279,11 @@ public class Robot extends IterativeRobot
             DriverStation.reportError("Error communicating with drive system:  " + ex.getMessage(), true);
         }
 
-        // Passes on the input from the controller's left and right triggers to move the arm vertically and scales its power and prioritizes control to the primary controller
+        // Passes on the input from the controller's left and right triggers to move the arm vertically and scales its power while prioritizing control to the primary controller
         if ((primaryController.getRawAxis(3) - primaryController.getRawAxis(2)) != 0)
-            armMotor.set((primaryController.getRawAxis(3) - primaryController.getRawAxis(2)) * 0.5);
+            armMotor.set((primaryController.getRawAxis(3) - primaryController.getRawAxis(2) * 0.25) * 1);
         else if ((secondaryController.getRawAxis(3) - secondaryController.getRawAxis(2)) != 0)
             armMotor.set((secondaryController.getRawAxis(3) - secondaryController.getRawAxis(2)) * 0.5);
-
-        // Updates the values on the LabView Default Dashboard
-        SmartDashboard.putString("DB/String 5", String.valueOf(ultrasonicSensor.getRangeInches()));
-        SmartDashboard.putString("DB/String 6", String.valueOf(navX.getAngle()));
-        SmartDashboard.putString("DB/String 7", String.valueOf(turnController.getSetpoint()));
 
         // Waits for the motors to update for 5ms
         Timer.delay(0.005);
