@@ -41,11 +41,11 @@ public class Robot extends IterativeRobot
 
     // TODO Tune PID coefficients
     // Initialize the PIDController coefficients
-    private static final double kP = 0.05;
-    private static final double kI = 0.00;
-    private static final double kD = 0.00;
-    private static final double kF = 0.02;
-    private static final double kToleranceDegrees = 2.0f;
+    private static double kP = 0.05;
+    private static double kI = 0.00;
+    private static double kD = 0.00;
+    private static double kF = 0.02;
+    private static double kToleranceDegrees = 2.0f;
 
     // Initialize a string that will specify which side the alliance elements are on based on the DriverStation
     String allianceElementsLocation = "";
@@ -103,9 +103,28 @@ public class Robot extends IterativeRobot
         SmartDashboard.putNumber("DB/Slider 1", 0.0);
         SmartDashboard.putNumber("DB/Slider 2", 0.0);
         SmartDashboard.putNumber("DB/Slider 3", 0.0);
+
+        // Puts 5 strings onto the LabView Default Dashboard to specify the PID coefficients
+        SmartDashboard.putString("DB/String 0", String.valueOf(kP));
+        SmartDashboard.putString("DB/String 1", String.valueOf(kI));
+        SmartDashboard.putString("DB/String 2", String.valueOf(kD));
+        SmartDashboard.putString("DB/String 3", String.valueOf(kF));
+        SmartDashboard.putString("DB/String 4", String.valueOf(kToleranceDegrees));
     }
 
-    // Function that is run once each time the robot enters autonomous mode
+    // Function run in an endless loop during the disabled mode
+    public void disabledPeriodic()
+    {
+        // Updates the stored PID coefficients based on the 5 strings on the LabView Default Dashboard
+        kP = Double.valueOf(SmartDashboard.getString("DB/String 0", String.valueOf(kP)));
+        kI = Double.valueOf(SmartDashboard.getString("DB/String 1", String.valueOf(kI)));
+        kD = Double.valueOf(SmartDashboard.getString("DB/String 2", String.valueOf(kD)));
+        kF = Double.valueOf(SmartDashboard.getString("DB/String 3", String.valueOf(kF)));
+        kToleranceDegrees = Double.valueOf(SmartDashboard.getString("DB/String 4", String.valueOf(kToleranceDegrees)));
+    }
+
+
+    // Function run once each time the robot enters autonomous mode
     public void autonomousInit()
     {
         // Resets the navX
