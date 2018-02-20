@@ -32,6 +32,9 @@ public class Robot extends IterativeRobot
     private SpeedControllerGroup rightSideDriveMotors;
     private DifferentialDrive robotDrive;
 
+    // Initialize an ultrasonic sensor
+    private Ultrasonic ultrasonicSensor;
+
     // Initialize the navX object
     private AHRS navX;
 
@@ -77,11 +80,17 @@ public class Robot extends IterativeRobot
         robotDrive.setExpiration(0.1);
         robotDrive.setMaxOutput(0.80);
 
+        // Assigns the ultrasonic sensor and enables it to calculate distances
+        ultrasonicSensor = new Ultrasonic(0, 1);
+        ultrasonicSensor.setEnabled(true);
+        ultrasonicSensor.setAutomaticMode(true);
+
         // Attempts to setup the navX object otherwise prints an error
         try
         {
-            // Initializes the navX object on the roboRIO's MXP port
+            // Initializes the navX object on the roboRIO's MXP port and resets it
             navX = new AHRS(SPI.Port.kMXP);
+            navX.reset();
         } catch (RuntimeException ex)
         {
             DriverStation.reportError("Error instantiating navX-MXP:  " + ex.getMessage(), true);
@@ -121,6 +130,11 @@ public class Robot extends IterativeRobot
         kD = Double.valueOf(SmartDashboard.getString("DB/String 2", String.valueOf(kD)));
         kF = Double.valueOf(SmartDashboard.getString("DB/String 3", String.valueOf(kF)));
         kToleranceDegrees = Double.valueOf(SmartDashboard.getString("DB/String 4", String.valueOf(kToleranceDegrees)));
+
+        // Updates the values on the LabView Default Dashboard
+        SmartDashboard.putString("DB/String 5", String.valueOf(ultrasonicSensor.getRangeInches()));
+        SmartDashboard.putString("DB/String 6", String.valueOf(navX.getAngle()));
+        SmartDashboard.putString("DB/String 7", String.valueOf(turnController.getSetpoint()));
     }
 
 
@@ -153,6 +167,17 @@ public class Robot extends IterativeRobot
                 if (allianceElementsLocation.charAt(0) == 'L')
                 {
                     // TODO Left switch autonomous code
+                    // Moves onto the next stage of the routine
+                    if (SmartDashboard.getNumber("DB/Slider 1", 0.0) == 0.0)
+                    {
+                        SmartDashboard.putNumber("DB/Slider 1", 1.0);
+                    }
+
+                    // Moves onto the next stage of the routine
+                    else if (SmartDashboard.getNumber("DB/Slider 1", 0.0) == 1.0)
+                    {
+                        SmartDashboard.putNumber("DB/Slider 1", 2.0);
+                    }
                 }
 
                 // Code run if the switch is on the right side
@@ -171,6 +196,11 @@ public class Robot extends IterativeRobot
 
         // Does nothing
         else robotDrive.stopMotor();
+
+        // Updates the values on the LabView Default Dashboard
+        SmartDashboard.putString("DB/String 5", String.valueOf(ultrasonicSensor.getRangeInches()));
+        SmartDashboard.putString("DB/String 6", String.valueOf(navX.getAngle()));
+        SmartDashboard.putString("DB/String 7", String.valueOf(turnController.getSetpoint()));
     }
 
     // Function run in an endless loop during the teleop mode
@@ -253,6 +283,11 @@ public class Robot extends IterativeRobot
             armMotor.set((primaryController.getRawAxis(3) - primaryController.getRawAxis(2)) * 0.5);
         else if ((secondaryController.getRawAxis(3) - secondaryController.getRawAxis(2)) != 0)
             armMotor.set((secondaryController.getRawAxis(3) - secondaryController.getRawAxis(2)) * 0.5);
+
+        // Updates the values on the LabView Default Dashboard
+        SmartDashboard.putString("DB/String 5", String.valueOf(ultrasonicSensor.getRangeInches()));
+        SmartDashboard.putString("DB/String 6", String.valueOf(navX.getAngle()));
+        SmartDashboard.putString("DB/String 7", String.valueOf(turnController.getSetpoint()));
 
         // Waits for the motors to update for 5ms
         Timer.delay(0.005);
