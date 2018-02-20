@@ -53,6 +53,12 @@ public class Robot extends IterativeRobot
     // Initialize a string that will specify which side each of the alliance elements are on based on the DriverStation
     private String allianceElementsLocation = "";
 
+    // Initialize a pushbutton sensor for determining when to disable the arm motor's break mode
+    private DigitalInput armPushButton;
+
+    // Initialize a boolean to enable a slow break mode for the arm motor
+    private boolean armBreakMode = false;
+
     // Function run once when the robot is turned on
     public void robotInit()
     {
@@ -84,6 +90,9 @@ public class Robot extends IterativeRobot
         ultrasonicSensor = new Ultrasonic(0, 1);
         ultrasonicSensor.setEnabled(true);
         ultrasonicSensor.setAutomaticMode(true);
+
+        // Assigns the arm's pushbutton sensor
+        armPushButton = new DigitalInput(2);
 
         // Attempts to setup the navX object otherwise prints an error
         try
@@ -178,14 +187,12 @@ public class Robot extends IterativeRobot
                     {
                         SmartDashboard.putNumber("DB/Slider 1", 1.0);
                     }
-
                     // Moves onto the next stage of the routine
                     else if (SmartDashboard.getNumber("DB/Slider 1", 0.0) == 1.0)
                     {
                         SmartDashboard.putNumber("DB/Slider 1", 2.0);
                     }
                 }
-
                 // Code run if the switch is on the right side
                 else if (allianceElementsLocation.charAt(0) == 'R')
                 {
@@ -193,13 +200,11 @@ public class Robot extends IterativeRobot
                 }
             }
         }
-
         // Moves the robot forward across the line
         else if (SmartDashboard.getBoolean("DB/Button 2", false))
         {
             // TODO Move across line autonomous code
         }
-
         // Does nothing
         else robotDrive.stopMotor();
     }
@@ -216,14 +221,12 @@ public class Robot extends IterativeRobot
             leftIntakeMotor.set(1);
             rightIntakeMotor.set(1);
         }
-
         // Right Bumper - Moves the intake motors to push out a cube
         else if (primaryController.getBumper(GenericHID.Hand.kRight) || secondaryController.getBumper(GenericHID.Hand.kRight))
         {
             leftIntakeMotor.set(-1);
             rightIntakeMotor.set(-1);
         }
-
         // Stops the intake motors from moving if neither the Left Bumper or the Right Bumper were pressed
         else
         {
@@ -236,21 +239,18 @@ public class Robot extends IterativeRobot
         {
             navX.reset();
         }
-
         // X Button - Rotates the robot by 90 degrees to the left of the origin position
         else if (primaryController.getXButton())
         {
             turnController.setSetpoint(90.0f);
             rotateToAngle = true;
         }
-
         // Y Button - Rotates the robot to the 180 (origin) position
         else if (primaryController.getYButton())
         {
             turnController.setSetpoint(179.9f);
             rotateToAngle = true;
         }
-
         // B Button - Rotates the robot by 90 degrees to the right of the origin position
         else if (primaryController.getBButton())
         {
@@ -279,11 +279,40 @@ public class Robot extends IterativeRobot
             DriverStation.reportError("Error communicating with drive system:  " + ex.getMessage(), true);
         }
 
-        // Passes on the input from the controller's left and right triggers to move the arm vertically and scales its power while prioritizing control to the primary controller
-        if ((primaryController.getRawAxis(3) - primaryController.getRawAxis(2)) != 0)
-            armMotor.set((primaryController.getRawAxis(3) - primaryController.getRawAxis(2) * 0.25) * 1);
-        else if ((secondaryController.getRawAxis(3) - secondaryController.getRawAxis(2)) != 0)
-            armMotor.set((secondaryController.getRawAxis(3) - secondaryController.getRawAxis(2)) * 0.5);
+        // Passes on the input from the primary controller's left and right triggers to move the arm vertically and scales its power
+        if (primaryController.getTriggerAxis(GenericHID.Hand.kRight) >= 0.2)
+        {
+            armMotor.set(primaryController.getTriggerAxis(GenericHID.Hand.kRight));
+            armBreakMode = true;
+        }
+        // Lowers the arm by counteracting a consistent upward power forcing a slow drop rate
+        else if (primaryController.getTriggerAxis(GenericHID.Hand.kLeft) >= 0.2)
+        {
+            armMotor.set((-primaryController.getTriggerAxis(GenericHID.Hand.kLeft) * 0.35) + 0.15);
+        }
+        // Passes on the input from the secondary controller's left and right triggers to move the arm vertically and scales its power
+        else if (secondaryController.getTriggerAxis(GenericHID.Hand.kRight) >= 0.2)
+        {
+            armMotor.set(secondaryController.getTriggerAxis(GenericHID.Hand.kRight));
+            armBreakMode = true;
+        }
+        // Lowers the arm by counteracting a consistent upward power forcing a slow drop rate
+        else if (secondaryController.getTriggerAxis(GenericHID.Hand.kLeft) >= 0.2)
+        {
+            armMotor.set((-secondaryController.getTriggerAxis(GenericHID.Hand.kLeft) * 0.35) + 0.15);
+        }
+        // Makes sure that the arm does not slam to the bottom by enabling a consistent upwards power to slow it down
+        else if (armBreakMode)
+        {
+            // Checks to see if the arm's pushbutton sensor is not being triggered and stops the break mode if it is
+            if (armPushButton.get())
+            {
+                armBreakMode = false;
+                armMotor.set(0);
+            } else armMotor.set(0.15);
+        }
+        // Stops the arm motor
+        else armMotor.set(0);
 
         // Waits for the motors to update for 5ms
         Timer.delay(0.005);
