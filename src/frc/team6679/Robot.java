@@ -81,7 +81,6 @@ public class Robot extends IterativeRobot
         // Sets the appropriate configuration settings for the motors
         leftSideDriveMotors.setInverted(true);
         rightSideDriveMotors.setInverted(true);
-        leftIntakeMotor.setInverted(true);
         robotDrive.setSafetyEnabled(true);
         robotDrive.setExpiration(0.1);
         robotDrive.setMaxOutput(0.80);
@@ -92,7 +91,7 @@ public class Robot extends IterativeRobot
         ultrasonicSensor.setAutomaticMode(true);
 
         // Assigns the arm's pushbutton sensor
-        armPushButton = new DigitalInput(2);
+        armPushButton = new DigitalInput(8);
 
         // Attempts to setup the navX object otherwise prints an error
         try
@@ -215,17 +214,17 @@ public class Robot extends IterativeRobot
         // Sets the boolean that toggles the PIDController to rotate the robot to false
         boolean rotateToAngle = false;
 
-        // Left Bumper - Moves the intake motors to take in a cube
+        // Left Bumper - Moves the intake motors to push out a cube
         if (primaryController.getBumper(GenericHID.Hand.kLeft) || secondaryController.getBumper(GenericHID.Hand.kLeft))
-        {
-            leftIntakeMotor.set(1);
-            rightIntakeMotor.set(1);
-        }
-        // Right Bumper - Moves the intake motors to push out a cube
-        else if (primaryController.getBumper(GenericHID.Hand.kRight) || secondaryController.getBumper(GenericHID.Hand.kRight))
         {
             leftIntakeMotor.set(-1);
             rightIntakeMotor.set(-1);
+        }
+        // Right Bumper - Moves the intake motors to take in a cube
+        else if (primaryController.getBumper(GenericHID.Hand.kRight) || secondaryController.getBumper(GenericHID.Hand.kRight))
+        {
+            leftIntakeMotor.set(1);
+            rightIntakeMotor.set(1);
         }
         // Stops the intake motors from moving if neither the Left Bumper or the Right Bumper were pressed
         else
@@ -305,7 +304,7 @@ public class Robot extends IterativeRobot
         else if (armBreakMode)
         {
             // Checks to see if the arm's pushbutton sensor is not being triggered and stops the break mode if it is
-            if (armPushButton.get())
+            if (!armPushButton.get())
             {
                 armBreakMode = false;
                 armMotor.set(0);
