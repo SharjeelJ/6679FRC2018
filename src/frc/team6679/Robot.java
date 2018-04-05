@@ -10,7 +10,6 @@ public class Robot extends IterativeRobot
 {
     // Initialize the two Xbox 360 controllers to control the robot
     private XboxController primaryController = new XboxController(0);
-    private XboxController secondaryController = new XboxController(1);
 
     // Initialize the drivetrain motors
     private WPI_TalonSRX leftDriveMotor1;
@@ -38,18 +37,6 @@ public class Robot extends IterativeRobot
     // Initialize the navX object
     private AHRS navX;
 
-    // Initialize a PIDController object for the drivetrain alongside a double to keep track of the angle to rotate the robot
-    private PIDController turnController;
-    private double rotateToAngleRate;
-
-    // TODO Tune PID coefficients
-    // Initialize the PIDController coefficients
-    private static double kP = 0.05;
-    private static double kI = 0.00;
-    private static double kD = 0.00;
-    private static double kF = 0.02;
-    private static double kToleranceDegrees = 2.0f;
-
     // Initialize a string that will specify which side each of the alliance elements are on based on the DriverStation
     private String allianceElementsLocation = "";
 
@@ -58,6 +45,9 @@ public class Robot extends IterativeRobot
 
     // Initialize a boolean to enable a slow break mode for the arm motor
     private boolean armBreakMode = false;
+
+    // Initialize a timer for timing routines
+    private Timer timer = new Timer();
 
     // Function run once when the robot is turned on
     public void robotInit()
@@ -104,13 +94,6 @@ public class Robot extends IterativeRobot
             DriverStation.reportError("Error instantiating navX-MXP:  " + ex.getMessage(), true);
         }
 
-        // Assigns the PIDController object its relevant values
-        turnController = new PIDController(kP, kI, kD, kF, navX, this::pidWrite);
-        turnController.setInputRange(-180.0f, 180.0f);
-        turnController.setOutputRange(-0.75, 0.75);
-        turnController.setAbsoluteTolerance(kToleranceDegrees);
-        turnController.setContinuous(true);
-
         // Puts 3 buttons onto the LabView Default Dashboard to choose the autonomous routine
         SmartDashboard.putBoolean("DB/Button 1", false);
         SmartDashboard.putBoolean("DB/Button 2", false);
@@ -120,13 +103,6 @@ public class Robot extends IterativeRobot
         SmartDashboard.putNumber("DB/Slider 1", 0.0);
         SmartDashboard.putNumber("DB/Slider 2", 0.0);
         SmartDashboard.putNumber("DB/Slider 3", 0.0);
-
-        // Puts 5 strings onto the LabView Default Dashboard to specify the PID coefficients
-        SmartDashboard.putString("DB/String 0", String.valueOf(kP));
-        SmartDashboard.putString("DB/String 1", String.valueOf(kI));
-        SmartDashboard.putString("DB/String 2", String.valueOf(kD));
-        SmartDashboard.putString("DB/String 3", String.valueOf(kF));
-        SmartDashboard.putString("DB/String 4", String.valueOf(kToleranceDegrees));
     }
 
     // Function run in an endless loop throughout all modes
@@ -135,28 +111,16 @@ public class Robot extends IterativeRobot
         // Updates the values on the LabView Default Dashboard
         SmartDashboard.putString("DB/String 5", String.valueOf(ultrasonicSensor.getRangeInches()));
         SmartDashboard.putString("DB/String 6", String.valueOf(navX.getAngle()));
-        SmartDashboard.putString("DB/String 7", String.valueOf(turnController.getSetpoint()));
     }
-
-    // Function run in an endless loop during the disabled mode
-    public void disabledPeriodic()
-    {
-        // Updates the stored PID coefficients based on the 5 strings on the LabView Default Dashboard
-        kP = Double.valueOf(SmartDashboard.getString("DB/String 0", String.valueOf(kP)));
-        kI = Double.valueOf(SmartDashboard.getString("DB/String 1", String.valueOf(kI)));
-        kD = Double.valueOf(SmartDashboard.getString("DB/String 2", String.valueOf(kD)));
-        kF = Double.valueOf(SmartDashboard.getString("DB/String 3", String.valueOf(kF)));
-        kToleranceDegrees = Double.valueOf(SmartDashboard.getString("DB/String 4", String.valueOf(kToleranceDegrees)));
-        turnController.setPID(kP, kI, kD, kF);
-        turnController.setAbsoluteTolerance(kToleranceDegrees);
-    }
-
 
     // Function run once each time the robot enters autonomous mode
     public void autonomousInit()
     {
         // Resets the navX
         navX.reset();
+
+        // Resets the timer
+        timer.reset();
 
         // Resets the 3 autonomous stage sliders
         SmartDashboard.putNumber("DB/Slider 1", 0.0);
@@ -171,57 +135,122 @@ public class Robot extends IterativeRobot
     public void autonomousPeriodic()
     {
         // Checks to see which autonomous routine has been requested for and calls it based on the LabView Default Dashboard's buttons
-        // Moves the robot forward then turns to the appropriate side and moves towards it and places the cube
+        // Moves the robot forward then places the cube if it is on the left side
         if (SmartDashboard.getBoolean("DB/Button 1", false))
         {
             // Parses the alliance elements location string to check if the autonomous mode being run is appropriate and uses it to determine which side the autonomous would be focusing on for the switch
             if (allianceElementsLocation.length() > 0)
             {
+                // Moves the robot forward towards the switch
+                if (SmartDashboard.getNumber("DB/Slider 1", 0.0) == 0.0)
+                {
+                    SmartDashboard.putNumber("DB/Slider 1", 1.0);
+                    robotDrive.arcadeDrive(0.60, 0);
+                }
+                // Stops the robot when its up against the switch
+                else if (SmartDashboard.getNumber("DB/Slider 1", 0.0) == 1.0 && ultrasonicSensor.getRangeInches() < 15)
+                {
+                    SmartDashboard.putNumber("DB/Slider 1", 2.0);
+                    robotDrive.stopMotor();
+                }
+
                 // Code run if the switch is on the left side
                 if (allianceElementsLocation.charAt(0) == 'L')
                 {
-                    // TODO Left switch autonomous code
-                    // Moves onto the next stage of the routine
-                    if (SmartDashboard.getNumber("DB/Slider 1", 0.0) == 0.0)
+                    // Places the cube
+                    if (SmartDashboard.getNumber("DB/Slider 1", 0.0) == 2.0)
                     {
-                        SmartDashboard.putNumber("DB/Slider 1", 1.0);
+                        SmartDashboard.putNumber("DB/Slider 1", 3.0);
+                        armMotor.set(0.75);
+                        timer.reset();
+                        timer.start();
                     }
-                    // Moves onto the next stage of the routine
-                    else if (SmartDashboard.getNumber("DB/Slider 1", 0.0) == 1.0)
+                    // Stops the arm motor
+                    else if (SmartDashboard.getNumber("DB/Slider 1", 0.0) == 3.0 && timer.get() > 2)
                     {
-                        SmartDashboard.putNumber("DB/Slider 1", 2.0);
+                        SmartDashboard.putNumber("DB/Slider 1", 4.0);
+                        armMotor.stopMotor();
+                        timer.stop();
+                        timer.reset();
                     }
                 }
-                // Code run if the switch is on the right side
-                else if (allianceElementsLocation.charAt(0) == 'R')
+            }
+        }
+        // Moves the robot forward then places the cube if it is on the right side
+        if (SmartDashboard.getBoolean("DB/Button 2", false))
+        {
+            // Parses the alliance elements location string to check if the autonomous mode being run is appropriate and uses it to determine which side the autonomous would be focusing on for the switch
+            if (allianceElementsLocation.length() > 0)
+            {
+                // Moves the robot forward towards the switch
+                if (SmartDashboard.getNumber("DB/Slider 2", 0.0) == 0.0)
                 {
-                    // TODO Right switch autonomous code
+                    SmartDashboard.putNumber("DB/Slider 2", 1.0);
+                    robotDrive.arcadeDrive(0.60, 0);
+                }
+                // Stops the robot when its up against the switch
+                else if (SmartDashboard.getNumber("DB/Slider 2", 0.0) == 1.0 && ultrasonicSensor.getRangeInches() < 15)
+                {
+                    SmartDashboard.putNumber("DB/Slider 2", 2.0);
+                    robotDrive.stopMotor();
+                }
+
+                // Code run if the switch is on the right side
+                if (allianceElementsLocation.charAt(0) == 'R')
+                {
+                    // Places the cube
+                    if (SmartDashboard.getNumber("DB/Slider 2", 0.0) == 2.0)
+                    {
+                        SmartDashboard.putNumber("DB/Slider 2", 3.0);
+                        armMotor.set(0.75);
+                        timer.reset();
+                        timer.start();
+                    }
+                    // Stops the arm motor
+                    else if (SmartDashboard.getNumber("DB/Slider 2", 0.0) == 3.0 && timer.get() > 2)
+                    {
+                        SmartDashboard.putNumber("DB/Slider 2", 4.0);
+                        armMotor.stopMotor();
+                        timer.stop();
+                        timer.reset();
+                    }
                 }
             }
         }
         // Moves the robot forward across the line
-        else if (SmartDashboard.getBoolean("DB/Button 2", false))
+        else if (SmartDashboard.getBoolean("DB/Button 3", false))
         {
-            // TODO Move across line autonomous code
+            if (SmartDashboard.getNumber("DB/Slider 3", 0.0) == 0.0)
+            {
+                SmartDashboard.putNumber("DB/Slider 3", 1.0);
+                robotDrive.arcadeDrive(-0.60, 0);
+            }
+            // Stops the robot when it has crossed the line
+            else if (SmartDashboard.getNumber("DB/Slider 3", 0.0) == 1.0 && ultrasonicSensor.getRangeInches() > 180)
+            {
+                SmartDashboard.putNumber("DB/Slider 3", 2.0);
+                robotDrive.stopMotor();
+            }
         }
         // Does nothing
-        else robotDrive.stopMotor();
+        else
+        {
+            robotDrive.stopMotor();
+            armMotor.stopMotor();
+        }
     }
 
     // Function run in an endless loop during the teleop mode
     public void teleopPeriodic()
     {
-        // Sets the boolean that toggles the PIDController to rotate the robot to false
-        boolean rotateToAngle = false;
-
         // Left Bumper - Moves the intake motors to push out a cube
-        if (primaryController.getBumper(GenericHID.Hand.kLeft) || secondaryController.getBumper(GenericHID.Hand.kLeft))
+        if (primaryController.getBumper(GenericHID.Hand.kLeft))
         {
             leftIntakeMotor.set(-1);
             rightIntakeMotor.set(-1);
         }
         // Right Bumper - Moves the intake motors to take in a cube
-        else if (primaryController.getBumper(GenericHID.Hand.kRight) || secondaryController.getBumper(GenericHID.Hand.kRight))
+        else if (primaryController.getBumper(GenericHID.Hand.kRight))
         {
             leftIntakeMotor.set(1);
             rightIntakeMotor.set(1);
@@ -231,51 +260,6 @@ public class Robot extends IterativeRobot
         {
             leftIntakeMotor.set(0);
             rightIntakeMotor.set(0);
-        }
-
-        // A Button - Resets the navX
-        if (primaryController.getAButtonPressed() && primaryController.getAButtonReleased())
-        {
-            navX.reset();
-        }
-        // X Button - Rotates the robot by 90 degrees to the left of the origin position
-        else if (primaryController.getXButton())
-        {
-            turnController.setSetpoint(90.0f);
-            rotateToAngle = true;
-        }
-        // Y Button - Rotates the robot to the 180 (origin) position
-        else if (primaryController.getYButton())
-        {
-            turnController.setSetpoint(179.9f);
-            rotateToAngle = true;
-        }
-        // B Button - Rotates the robot by 90 degrees to the right of the origin position
-        else if (primaryController.getBButton())
-        {
-            turnController.setSetpoint(-90.0f);
-            rotateToAngle = true;
-        }
-
-        // Rotates the robot by the relevant amount based on the PIDController's set point and whether or not a button was pressed to specify a rotation
-        double currentRotationRate;
-        if (rotateToAngle)
-        {
-            turnController.enable();
-            currentRotationRate = rotateToAngleRate;
-        } else
-        {
-            turnController.disable();
-            currentRotationRate = -primaryController.getRawAxis(0);
-        }
-
-        // Moves the robot with the rotation rate being influenced by the PIDController
-        try
-        {
-            robotDrive.arcadeDrive(primaryController.getRawAxis(5), currentRotationRate);
-        } catch (RuntimeException ex)
-        {
-            DriverStation.reportError("Error communicating with drive system:  " + ex.getMessage(), true);
         }
 
         // Passes on the input from the primary controller's left and right triggers to move the arm vertically and scales its power
@@ -288,17 +272,6 @@ public class Robot extends IterativeRobot
         else if (primaryController.getTriggerAxis(GenericHID.Hand.kLeft) >= 0.2)
         {
             armMotor.set((-primaryController.getTriggerAxis(GenericHID.Hand.kLeft) * 0.35) + 0.15);
-        }
-        // Passes on the input from the secondary controller's left and right triggers to move the arm vertically and scales its power
-        else if (secondaryController.getTriggerAxis(GenericHID.Hand.kRight) >= 0.2)
-        {
-            armMotor.set(secondaryController.getTriggerAxis(GenericHID.Hand.kRight));
-            armBreakMode = true;
-        }
-        // Lowers the arm by counteracting a consistent upward power forcing a slow drop rate
-        else if (secondaryController.getTriggerAxis(GenericHID.Hand.kLeft) >= 0.2)
-        {
-            armMotor.set((-secondaryController.getTriggerAxis(GenericHID.Hand.kLeft) * 0.35) + 0.15);
         }
         // Makes sure that the arm does not slam to the bottom by enabling a consistent upwards power to slow it down
         else if (armBreakMode)
@@ -315,12 +288,5 @@ public class Robot extends IterativeRobot
 
         // Waits for the motors to update for 5ms
         Timer.delay(0.005);
-    }
-
-
-    // Function called by the PIDController based on the navX's yaw angle and PID coefficients
-    private void pidWrite(double output)
-    {
-        rotateToAngleRate = output;
     }
 }
