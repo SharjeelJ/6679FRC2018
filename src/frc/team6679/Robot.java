@@ -8,7 +8,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 public class Robot extends IterativeRobot
 {
-    // Initialize the two Xbox 360 controllers to control the robot
+    // Initialize an Xbox 360 controller to control the robot
     private XboxController primaryController = new XboxController(0);
 
     // Initialize the drivetrain motors
@@ -31,9 +31,6 @@ public class Robot extends IterativeRobot
     private SpeedControllerGroup rightSideDriveMotors;
     private DifferentialDrive robotDrive;
 
-    // Initialize an ultrasonic sensor
-    private Ultrasonic ultrasonicSensor;
-
     // Initialize the navX object
     private AHRS navX;
 
@@ -45,9 +42,6 @@ public class Robot extends IterativeRobot
 
     // Initialize a boolean to enable a slow break mode for the arm motor
     private boolean armBreakMode = false;
-
-    // Initialize a timer for timing routines
-    private Timer timer = new Timer();
 
     // Function run once when the robot is turned on
     public void robotInit()
@@ -71,14 +65,11 @@ public class Robot extends IterativeRobot
         // Sets the appropriate configuration settings for the motors
         leftSideDriveMotors.setInverted(true);
         rightSideDriveMotors.setInverted(true);
+        leftIntakeMotor.setInverted(true);
+        armMotor.setSafetyEnabled(true);
         robotDrive.setSafetyEnabled(true);
         robotDrive.setExpiration(0.1);
         robotDrive.setMaxOutput(0.80);
-
-        // Assigns the ultrasonic sensor and enables it to calculate distances
-        ultrasonicSensor = new Ultrasonic(0, 1);
-        ultrasonicSensor.setEnabled(true);
-        ultrasonicSensor.setAutomaticMode(true);
 
         // Assigns the arm's pushbutton sensor
         armPushButton = new DigitalInput(8);
@@ -109,7 +100,6 @@ public class Robot extends IterativeRobot
     public void robotPeriodic()
     {
         // Updates the values on the LabView Default Dashboard
-        SmartDashboard.putString("DB/String 5", String.valueOf(ultrasonicSensor.getRangeInches()));
         SmartDashboard.putString("DB/String 6", String.valueOf(navX.getAngle()));
     }
 
@@ -119,9 +109,6 @@ public class Robot extends IterativeRobot
         // Resets the navX
         navX.reset();
 
-        // Resets the timer
-        timer.reset();
-
         // Resets the 3 autonomous stage sliders
         SmartDashboard.putNumber("DB/Slider 1", 0.0);
         SmartDashboard.putNumber("DB/Slider 2", 0.0);
@@ -129,6 +116,10 @@ public class Robot extends IterativeRobot
 
         // Gets the string from the DriverStation specifying which side each of the alliance elements are on and stores it
         allianceElementsLocation = DriverStation.getInstance().getGameSpecificMessage();
+
+        // Disables motor safety for the drivetrain and the arm for autonomous
+        robotDrive.setSafetyEnabled(false);
+        armMotor.setSafetyEnabled(false);
     }
 
     // Function run in an endless loop during the autonomous mode
@@ -136,101 +127,77 @@ public class Robot extends IterativeRobot
     {
         // Checks to see which autonomous routine has been requested for and calls it based on the LabView Default Dashboard's buttons
         // Moves the robot forward then places the cube if it is on the left side
-        if (SmartDashboard.getBoolean("DB/Button 1", false))
+        if (SmartDashboard.getBoolean("DB/Button 1", false) && SmartDashboard.getNumber("DB/Slider 1", 0.0) == 0.0)
         {
-            // Parses the alliance elements location string to check if the autonomous mode being run is appropriate and uses it to determine which side the autonomous would be focusing on for the switch
-            if (allianceElementsLocation.length() > 0)
+            // Moves the robot in reverse towards the switch
+            robotDrive.arcadeDrive(0.60, 0);
+            try
             {
-                // Moves the robot forward towards the switch
-                if (SmartDashboard.getNumber("DB/Slider 1", 0.0) == 0.0)
-                {
-                    SmartDashboard.putNumber("DB/Slider 1", 1.0);
-                    robotDrive.arcadeDrive(0.60, 0);
-                }
-                // Stops the robot when its up against the switch
-                else if (SmartDashboard.getNumber("DB/Slider 1", 0.0) == 1.0 && ultrasonicSensor.getRangeInches() < 15)
-                {
-                    SmartDashboard.putNumber("DB/Slider 1", 2.0);
-                    robotDrive.stopMotor();
-                }
+                Thread.sleep(3500);
+            } catch (InterruptedException e)
+            {
+                e.printStackTrace();
+            }
+            robotDrive.stopMotor();
 
-                // Code run if the switch is on the left side
-                if (allianceElementsLocation.charAt(0) == 'L')
+            // Code run if the switch is on the left side to place the cube
+            if (allianceElementsLocation.charAt(0) == 'L')
+            {
+                armMotor.set(1);
+                try
                 {
-                    // Places the cube
-                    if (SmartDashboard.getNumber("DB/Slider 1", 0.0) == 2.0)
-                    {
-                        SmartDashboard.putNumber("DB/Slider 1", 3.0);
-                        armMotor.set(0.75);
-                        timer.reset();
-                        timer.start();
-                    }
-                    // Stops the arm motor
-                    else if (SmartDashboard.getNumber("DB/Slider 1", 0.0) == 3.0 && timer.get() > 2)
-                    {
-                        SmartDashboard.putNumber("DB/Slider 1", 4.0);
-                        armMotor.stopMotor();
-                        timer.stop();
-                        timer.reset();
-                    }
+                    Thread.sleep(2000);
+                } catch (InterruptedException e)
+                {
+                    e.printStackTrace();
                 }
+                armMotor.stopMotor();
+                SmartDashboard.putNumber("DB/Slider 1", 1.0);
             }
         }
         // Moves the robot forward then places the cube if it is on the right side
-        if (SmartDashboard.getBoolean("DB/Button 2", false))
+        else if (SmartDashboard.getBoolean("DB/Button 2", false) && SmartDashboard.getNumber("DB/Slider 2", 0.0) == 0.0)
         {
-            // Parses the alliance elements location string to check if the autonomous mode being run is appropriate and uses it to determine which side the autonomous would be focusing on for the switch
-            if (allianceElementsLocation.length() > 0)
+            // Moves the robot in reverse towards the switch
+            robotDrive.arcadeDrive(0.60, 0);
+            try
             {
-                // Moves the robot forward towards the switch
-                if (SmartDashboard.getNumber("DB/Slider 2", 0.0) == 0.0)
-                {
-                    SmartDashboard.putNumber("DB/Slider 2", 1.0);
-                    robotDrive.arcadeDrive(0.60, 0);
-                }
-                // Stops the robot when its up against the switch
-                else if (SmartDashboard.getNumber("DB/Slider 2", 0.0) == 1.0 && ultrasonicSensor.getRangeInches() < 15)
-                {
-                    SmartDashboard.putNumber("DB/Slider 2", 2.0);
-                    robotDrive.stopMotor();
-                }
+                Thread.sleep(3500);
+            } catch (InterruptedException e)
+            {
+                e.printStackTrace();
+            }
+            robotDrive.stopMotor();
 
-                // Code run if the switch is on the right side
-                if (allianceElementsLocation.charAt(0) == 'R')
+            // Code run if the switch is on the right side to place the cube
+            if (allianceElementsLocation.charAt(0) == 'R')
+            {
+                armMotor.set(1);
+                try
                 {
-                    // Places the cube
-                    if (SmartDashboard.getNumber("DB/Slider 2", 0.0) == 2.0)
-                    {
-                        SmartDashboard.putNumber("DB/Slider 2", 3.0);
-                        armMotor.set(0.75);
-                        timer.reset();
-                        timer.start();
-                    }
-                    // Stops the arm motor
-                    else if (SmartDashboard.getNumber("DB/Slider 2", 0.0) == 3.0 && timer.get() > 2)
-                    {
-                        SmartDashboard.putNumber("DB/Slider 2", 4.0);
-                        armMotor.stopMotor();
-                        timer.stop();
-                        timer.reset();
-                    }
+                    Thread.sleep(2000);
+                } catch (InterruptedException e)
+                {
+                    e.printStackTrace();
                 }
+                armMotor.stopMotor();
+                SmartDashboard.putNumber("DB/Slider 2", 1.0);
             }
         }
         // Moves the robot forward across the line
-        else if (SmartDashboard.getBoolean("DB/Button 3", false))
+        else if (SmartDashboard.getBoolean("DB/Button 3", false) && SmartDashboard.getNumber("DB/Slider 3", 0.0) == 0.0)
         {
-            if (SmartDashboard.getNumber("DB/Slider 3", 0.0) == 0.0)
+            // Moves the robot in reverse across  the line
+            robotDrive.arcadeDrive(0.60, 0);
+            try
             {
-                SmartDashboard.putNumber("DB/Slider 3", 1.0);
-                robotDrive.arcadeDrive(-0.60, 0);
-            }
-            // Stops the robot when it has crossed the line
-            else if (SmartDashboard.getNumber("DB/Slider 3", 0.0) == 1.0 && ultrasonicSensor.getRangeInches() > 180)
+                Thread.sleep(3500);
+            } catch (InterruptedException e)
             {
-                SmartDashboard.putNumber("DB/Slider 3", 2.0);
-                robotDrive.stopMotor();
+                e.printStackTrace();
             }
+            robotDrive.stopMotor();
+            SmartDashboard.putNumber("DB/Slider 3", 1.0);
         }
         // Does nothing
         else
@@ -240,20 +207,28 @@ public class Robot extends IterativeRobot
         }
     }
 
+    // Function run once each time the robot enters teleop mode
+    public void teleopInit()
+    {
+        // Enables motor safety for the drivetrain and the arm for teleop
+        robotDrive.setSafetyEnabled(true);
+        armMotor.setSafetyEnabled(true);
+    }
+
     // Function run in an endless loop during the teleop mode
     public void teleopPeriodic()
     {
         // Left Bumper - Moves the intake motors to push out a cube
         if (primaryController.getBumper(GenericHID.Hand.kLeft))
         {
-            leftIntakeMotor.set(-1);
-            rightIntakeMotor.set(-1);
+            leftIntakeMotor.set(1);
+            rightIntakeMotor.set(1);
         }
         // Right Bumper - Moves the intake motors to take in a cube
         else if (primaryController.getBumper(GenericHID.Hand.kRight))
         {
-            leftIntakeMotor.set(1);
-            rightIntakeMotor.set(1);
+            leftIntakeMotor.set(-1);
+            rightIntakeMotor.set(-1);
         }
         // Stops the intake motors from moving if neither the Left Bumper or the Right Bumper were pressed
         else
@@ -285,6 +260,9 @@ public class Robot extends IterativeRobot
         }
         // Stops the arm motor
         else armMotor.set(0);
+
+        // Sends the Y axis input from the left stick (speed) and the X axis input from the right stick (rotation) from the primary controller to move the robot
+        robotDrive.arcadeDrive(primaryController.getY(GenericHID.Hand.kRight), -primaryController.getX(GenericHID.Hand.kLeft));
 
         // Waits for the motors to update for 5ms
         Timer.delay(0.005);
