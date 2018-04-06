@@ -152,8 +152,8 @@ public class Robot extends IterativeRobot
                     e.printStackTrace();
                 }
                 armMotor.stopMotor();
-                SmartDashboard.putNumber("DB/Slider 1", 1.0);
             }
+            SmartDashboard.putNumber("DB/Slider 1", 1.0);
         }
         // Moves the robot forward then places the cube if it is on the right side
         else if (SmartDashboard.getBoolean("DB/Button 2", false) && SmartDashboard.getNumber("DB/Slider 2", 0.0) == 0.0)
@@ -181,8 +181,8 @@ public class Robot extends IterativeRobot
                     e.printStackTrace();
                 }
                 armMotor.stopMotor();
-                SmartDashboard.putNumber("DB/Slider 2", 1.0);
             }
+            SmartDashboard.putNumber("DB/Slider 2", 1.0);
         }
         // Moves the robot forward across the line
         else if (SmartDashboard.getBoolean("DB/Button 3", false) && SmartDashboard.getNumber("DB/Slider 3", 0.0) == 0.0)
